@@ -1712,7 +1712,7 @@ void close_thread_table(THD *thd, TABLE **table_ptr) {
   DBUG_ASSERT(table->key_read == 0);
   DBUG_ASSERT(!table->file || table->file->inited == handler::NONE);
   mysql_mutex_assert_not_owner(&LOCK_open);
-  //Test commit.
+  //Test commit1.
   /*
     The metadata lock must be released after giving back
     the table to the table cache.

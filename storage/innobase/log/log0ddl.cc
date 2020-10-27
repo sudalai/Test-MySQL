@@ -1331,6 +1331,8 @@ dberr_t Log_DDL::insert_rename_table_log(uint64_t id, ulint thread_id,
   if (error == DB_SUCCESS && srv_print_ddl_logs) {
     ib::info(ER_IB_MSG_651) << "DDL log insert : " << record;
   }
+  mlog_write_ddl_track_tablename(old_name, ut_strlen(old_name)+1);
+  mlog_write_ddl_track_tablename(new_name, ut_strlen(new_name)+1);
 
   return (error);
 }

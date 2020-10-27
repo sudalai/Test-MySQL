@@ -149,6 +149,59 @@ byte *mlog_parse_initial_log_record(
   return (const_cast<byte *>(ptr));
 }
 
+
+void mlog_write_ddl_track_tablename(const char * table_name, ulint len){
+
+	const char * table=dict_remove_db_name(table_name);
+	if(len > 3 && strncmp("#sql",table,3)==0){
+		return;
+	}
+
+	mtr_t mtr;
+
+	log_free_check();
+
+	mtr_start(&mtr);
+
+	byte * log_ptr;
+	log_ptr=mlog_open(&mtr, len+4);
+	mach_write_to_1(log_ptr, MLOG_DDL_TRACK_TABLENAME);
+	log_ptr++;
+	log_ptr += mach_write_compressed(log_ptr, len);
+
+
+	 memcpy(log_ptr, table_name, len);
+	 log_ptr+=len;
+	  (&mtr)->added_rec();
+
+	 mlog_close(&mtr, log_ptr);
+	mtr_commit(&mtr);
+}
+
+byte * mlog_parse_ddl_track_tablename(const byte * ptr, const byte * end_ptr, char * table_name){
+	if(end_ptr < ptr + 1){
+		return nullptr;
+	}
+
+	ut_ad((mlog_id_t)((ulint)*ptr & ~MLOG_SINGLE_REC_FLAG) == MLOG_DDL_TRACK_TABLENAME);
+	ptr++;
+	if (end_ptr < ptr + 1) {
+		return (nullptr);
+	}
+	ulint len= mach_parse_u64_much_compressed(&ptr, end_ptr);
+	if (ptr == nullptr || end_ptr < ptr + len) {
+	    return (nullptr);
+	}
+
+	memcpy(table_name, ptr, len);
+	table_name[len]='\0';
+	ptr+=len;
+	return (const_cast<byte *>(ptr));
+
+}
+
+
+
 /** Parses a log record written by mlog_write_ulint or mlog_write_ull.
  @return parsed record end, NULL if not a complete record or a corrupt record */
 byte *mlog_parse_nbytes(

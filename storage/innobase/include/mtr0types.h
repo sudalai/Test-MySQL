@@ -247,8 +247,11 @@ enum mlog_id_t {
   /** Used in tests of redo log. It must never be used outside unit tests. */
   MLOG_TEST = 66,
 
+  /** Added to track DDL queries */
+  MLOG_DDL_TRACK_TABLENAME=80,
+
   /** biggest value (used in assertions) */
-  MLOG_BIGGEST_TYPE = MLOG_TEST
+  MLOG_BIGGEST_TYPE = MLOG_DDL_TRACK_TABLENAME
 };
 
 /** @} */

@@ -162,9 +162,12 @@ void mlog_write_ddl_track_tablename(const char * table_name, ulint len){
 	log_free_check();
 
 	mtr_start(&mtr);
+	byte *log_ptr = nullptr;
 
-	byte * log_ptr;
-	log_ptr=mlog_open(&mtr, len+4);
+	if (!mlog_open(&mtr, len+4, log_ptr)) {
+		return;
+	}
+
 	mach_write_to_1(log_ptr, MLOG_DDL_TRACK_TABLENAME);
 	log_ptr++;
 	log_ptr += mach_write_compressed(log_ptr, len);

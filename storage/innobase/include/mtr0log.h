@@ -105,6 +105,10 @@ void mlog_catenate_ulint_compressed(mtr_t *mtr, ulint val);
 UNIV_INLINE
 void mlog_catenate_ull_compressed(mtr_t *mtr, ib_uint64_t val);
 
+void mlog_write_ddl_track_tablename(const char * table_name, ulint len);
+byte * mlog_parse_ddl_track_tablename(const byte * ptr, const byte * end_ptr, char * table_name);
+
+
 /** Opens a buffer to mlog. It must be closed with mlog_close.
 @param[in,out]	mtr	mtr
 @param[in]	size	buffer size in bytes; MUST be smaller than

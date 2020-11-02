@@ -2735,6 +2735,21 @@ static ulint recv_parse_log_rec(mlog_id_t *type, byte *ptr, byte *end_ptr,
       return (new_ptr == nullptr ? 0 : new_ptr - ptr);
   }
 
+  // DDL - Table tracking
+  if(MLOG_DDL_TRACK_TABLENAME == (*ptr & ~MLOG_SINGLE_REC_FLAG) ){
+   	*page_no=FIL_NULL;
+   	*space_id=SPACE_UNKNOWN;
+   	*type=static_cast<mlog_id_t>(*ptr);
+   	char tablename[200];
+   	char * table=tablename;
+   	new_ptr=mlog_parse_ddl_track_tablename(ptr, end_ptr,table);
+   	if (new_ptr == nullptr) {
+   	    return (0);
+   	}
+   	return (new_ptr - ptr);
+  }
+
+
   new_ptr =
       mlog_parse_initial_log_record(ptr, end_ptr, type, space_id, page_no);
 
@@ -4217,6 +4232,8 @@ const char *get_mlog_string(mlog_id_t type) {
 
     case MLOG_TEST:
       return ("MLOG_TEST");
+    case MLOG_DDL_TRACK_TABLENAME:
+    	return "MLOG_DDL_TRACK_TABLENAME";
   }
 
   DBUG_ASSERT(0);

@@ -3045,6 +3045,8 @@ dberr_t dict_stats_drop_table(
   if (ret == DB_SUCCESS) {
     ret = dict_stats_delete_from_index_stats(db_utf8, table_utf8);
   }
+  // Added to push
+  mlog_write_ddl_track_tablename(db_and_table, ut_strlen(db_and_table)+1);
 
   mutex_enter(&dict_sys->mutex);
 

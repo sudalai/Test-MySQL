@@ -7957,8 +7957,8 @@ dberr_t Fil_shard::do_io(const IORequest &type, bool sync,
 
   offset += byte_offset;
 
-  ut_a(file->size - page_no >=
-       (byte_offset + len + (page_size.physical() - 1)) / page_size.physical());
+  //ut_a(file->size - page_no >=
+   //    (byte_offset + len + (page_size.physical() - 1)) / page_size.physical());
 
   ut_a((len % OS_FILE_LOG_BLOCK_SIZE) == 0);
   ut_a(byte_offset % OS_FILE_LOG_BLOCK_SIZE == 0);

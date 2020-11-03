@@ -1218,9 +1218,11 @@ rec_t *page_cur_insert_rec_low(
   page = page_align(current_rec);
   ut_ad(dict_table_is_comp(index->table) == (ibool) !!page_is_comp(page));
   ut_ad(fil_page_index_page_check(page));
+
   ut_ad(mach_read_from_8(page + PAGE_HEADER + PAGE_INDEX_ID) == index->id ||
         recv_recovery_is_on() ||
         (mtr ? mtr->is_inside_ibuf() : dict_index_is_ibuf(index)));
+
 
   ut_ad(!page_rec_is_supremum(current_rec));
 

@@ -71,6 +71,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "buf0dump.h"
 #include "dict0dict.h"
 #include "log0recv.h"
+#include "s0buf0refresher.h"
 #include "os0thread-create.h"
 #include "page0zip.h"
 #include "srv0mon.h"
@@ -282,7 +283,7 @@ the read requests for the whole area.
 static const int WAIT_FOR_READ = 100;
 static const int WAIT_FOR_WRITE = 100;
 /** Number of attempts made to read in a page in the buffer pool */
-static const ulint BUF_PAGE_READ_MAX_RETRIES = 100;
+static const ulint BUF_PAGE_READ_MAX_RETRIES = 1000;
 /** Number of pages to read ahead */
 static const ulint BUF_READ_AHEAD_PAGES = 64;
 /** The maximum portion of the buffer pool that can be used for the
@@ -4184,6 +4185,15 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
   ut_ad(page_size.equals_to(space_page_size));
 #endif /* UNIV_DEBUG */
 
+  page_no_t size=fil_space_get_size(page_id.space());
+
+  if(size < page_id.page_no()){
+          fprintf(stderr, "Out of bound page read request (%d,%d)\n",page_id.space(),page_id.page_no());
+          return NULL;
+  }
+
+  buf_block_t * block=NULL;
+
   if (mode == Page_fetch::NORMAL && !fsp_is_system_temporary(page_id.space())) {
     Buf_fetch_normal fetch(page_id, page_size);
 
@@ -4195,7 +4205,7 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
     fetch.m_mtr = mtr;
     fetch.m_dirty_with_no_latch = dirty_with_no_latch;
 
-    return (fetch.single_page());
+    block=fetch.single_page();
 
   } else {
     Buf_fetch_other fetch(page_id, page_size);
@@ -4208,8 +4218,20 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
     fetch.m_mtr = mtr;
     fetch.m_dirty_with_no_latch = dirty_with_no_latch;
 
-    return (fetch.single_page());
+    block=fetch.single_page();
   }
+  if(block!=NULL){
+
+       byte * frame = (block)->frame;
+
+           int read_page_no = mach_read_from_4(frame + FIL_PAGE_OFFSET);
+           int read_space_id = mach_read_from_4(frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+
+               if (read_space_id == 0 && read_page_no == 0  && block->page.id.space() != TRX_SYS_SPACE) {
+                       return NULL;
+               }
+  }
+  return block;
 }
 
 bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
@@ -4661,10 +4683,38 @@ buf_page_t *buf_page_init_for_read(dberr_t *err, ulint mode,
 
     bpage = nullptr;
 
+    *err=DB_DATA_MISMATCH;
+
     goto func_exit;
   }
 
   if (block != nullptr) {
+
+	  page_no_t size=fil_space_get_size(page_id.space());
+
+	  if(size < page_id.page_no()){
+
+	          mutex_exit(&buf_pool->LRU_list_mutex);
+	      rw_lock_x_unlock(hash_lock);
+	      if (bpage != NULL) {
+	            buf_page_free_descriptor(bpage);
+	       }
+
+	          if (data != NULL) {
+	            buf_buddy_free(buf_pool, data, page_size.physical());
+	          }
+
+	          if (block != NULL) {
+	            buf_LRU_block_free_non_file_page(block);
+	          }
+
+	          bpage = NULL;
+
+	          goto func_exit;
+
+	  }
+
+
     ut_ad(!bpage);
     bpage = &block->page;
 
@@ -5221,6 +5271,35 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict) {
       ut_a(uncompressed);
       recv_recover_page(true, (buf_block_t *)bpage);
     }
+
+    int max_retry=50;
+    int retry=0;
+
+recovery_retry:
+	sbuf_recv_recover_page(true,(buf_block_t *)bpage);
+    retry++;
+
+    read_page_no = mach_read_from_4(frame + FIL_PAGE_OFFSET);
+    read_space_id = mach_read_from_4(frame + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
+
+
+        if (read_space_id == 0 && read_page_no == 0  && bpage->id.space() != TRX_SYS_SPACE) {
+                          /* This is likely an uninitialized page. */
+        fprintf(stderr,"Uninitialized page read (%d, %d), retry: %d \n",bpage->id.space(), bpage->id.page_no(), retry);
+
+
+            if ( (bpage->buf_fix_count != 0) && retry < max_retry){
+                os_thread_sleep(50000); //0.5ms
+                goto recovery_retry;
+            }
+            if(bpage->buf_fix_count==0){
+                buf_read_page_handle_error(bpage);
+                return (false);
+            }
+
+        }
+
+
 
     if (uncompressed && !Compression::is_compressed_page(frame) &&
         !recv_no_ibuf_operations &&

@@ -258,7 +258,10 @@ bool lock_clust_rec_cons_read_sees(
   transactions from different connections cannot simultaneously
   operate on same temp-table and so read of temp-table is
   always consistent read. */
-  if (srv_read_only_mode || index->table->is_temporary()) {
+
+  //if (srv_read_only_mode || index->table->is_temporary()) {  //Commenting to allow read view in read only mode for passive instance.
+
+  if(index->table->is_temporary()){
     ut_ad(view == nullptr || index->table->is_temporary());
     return (true);
   }

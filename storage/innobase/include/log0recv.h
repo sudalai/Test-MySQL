@@ -47,6 +47,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <set>
 #include <unordered_map>
 
+#include "mysql/psi/mysql_mutex.h"
 class MetadataRecover;
 class PersistentTableMetadata;
 
@@ -327,6 +328,8 @@ struct recv_addr_t {
 
   /** List of log records for this page */
   List rec_list;
+
+  mysql_mutex_t page_mutex;
 };
 
 // Forward declaration
@@ -593,6 +596,10 @@ extern ulint recv_n_pool_free_frames;
 /** A list of tablespaces for which (un)encryption process was not
 completed before crash. */
 extern std::list<space_id_t> recv_encr_ts_list;
+
+extern MY_ATTRIBUTE((warn_unused_result)) dberr_t
+           recv_find_max_checkpoint(log_t &log, ulint *max_field) ;
+
 
 #include "log0recv.ic"
 

@@ -69,6 +69,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ibuf0ibuf.h"
 #include "log0log.h"
 #include "log0recv.h"
+#include "s0buf0refresher.h"
 #include "mem0mem.h"
 #include "mtr0mtr.h"
 
@@ -2393,6 +2394,13 @@ files_checked:
     therefore requires that the trx_sys is inited. */
 
     trx_purge_sys_create(srv_threads.m_purge_workers_n, purge_queue);
+
+    dberr_t err1=sbuf_start_bufpool_refresher(*log_sys,flushed_lsn);
+
+    if (err1 != DB_SUCCESS ) {
+      return (srv_init_abort(err));
+    }
+
 
     err = dict_create();
 

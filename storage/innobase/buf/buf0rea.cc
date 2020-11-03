@@ -89,6 +89,9 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
   pool for read, then DISCARD cannot proceed until the read has
   completed */
   bpage = buf_page_init_for_read(err, mode, page_id, page_size, unzip);
+  if(*err == DB_DATA_MISMATCH){
+         return 0;
+  }
 
   if (bpage == nullptr) {
     return (0);
@@ -116,7 +119,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
     dst = ((buf_block_t *)bpage)->frame;
   }
 
-  IORequest request(type | IORequest::READ);
+  IORequest request(type | IORequest::READ | IORequest::IGNORE_MISSING);
 
   *err = fil_io(request, sync, page_id, page_size, 0, page_size.physical(), dst,
                 bpage);
@@ -126,7 +129,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
   }
 
   if (*err != DB_SUCCESS) {
-    if (IORequest::ignore_missing(type) || *err == DB_TABLESPACE_DELETED) {
+    if (IORequest::ignore_missing(type | IORequest::IGNORE_MISSING) || *err == DB_TABLESPACE_DELETED) {
       buf_read_page_handle_error(bpage);
       return (0);
     }
